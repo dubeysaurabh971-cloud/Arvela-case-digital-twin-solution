@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8">
+<title>Clarin Cutover Twin</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a planner's console. Controls on the left, charts on the right; old bottle = amber, new bottle = teal, plan-vs-reality = dashed vs solid */
+:root{
+  --bg:#F4F5F7; --paper:#FFFFFF; --sunk:#EAEDF2; --ink:#16202E; --muted:#59647A; --line:#D6DBE4;
+  --accent:#2A44A0; --accent-soft:rgba(42,68,160,.08);
+  --old:#B06A0A; --old-soft:rgba(176,106,10,.22); --new:#127A6C; --new-soft:rgba(18,122,108,.22);
+  --bad:#B3261E; --bad-soft:rgba(179,38,30,.14); --good:#25734A; --warn:#94600A;
+  --f-display:"Newsreader",Georgia,"Times New Roman",serif;
+  --f-body:"Public Sans","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0E131B; --paper:#151C27; --sunk:#1B2431; --ink:#E4E8EF; --muted:#9AA5B8; --line:#2A3445;
+  --accent:#8EA4F5; --accent-soft:rgba(142,164,245,.12);
+  --old:#E6A54A; --old-soft:rgba(230,165,74,.24); --new:#4CC9B4; --new-soft:rgba(76,201,180,.22);
+  --bad:#F08A82; --bad-soft:rgba(240,138,130,.16); --good:#6FCB95; --warn:#E2B04C; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0E131B; --paper:#151C27; --sunk:#1B2431; --ink:#E4E8EF; --muted:#9AA5B8; --line:#2A3445;
+  --accent:#8EA4F5; --accent-soft:rgba(142,164,245,.12);
+  --old:#E6A54A; --old-soft:rgba(230,165,74,.24); --new:#4CC9B4; --new-soft:rgba(76,201,180,.22);
+  --bad:#F08A82; --bad-soft:rgba(240,138,130,.16); --good:#6FCB95; --warn:#E2B04C; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 64px}
+.page{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2{font-family:var(--f-display);font-weight:600;line-height:1.1;margin:0;text-wrap:balance}
+h1{font-size:clamp(2rem,4.4vw,2.8rem)}
+h2{font-size:1.45rem}
+h3{margin:0;font-size:.95rem;font-weight:700}
+p{margin:0}
+.label{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-size:.88em}
+.intro{display:flex;flex-direction:column;gap:10px;max-width:78ch}
+
+/* three ways the twin helps */
+.helps{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.help{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.help .n{font-family:var(--f-display);font-size:1.5rem;color:var(--accent);line-height:1}
+.help p{font-size:.9rem}
+
+/* console */
+.console{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){ .console{grid-template-columns:minmax(0,1fr)} }
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:16px}
+.ctl{display:flex;flex-direction:column;gap:5px}
+.ctl label,.ctl .lbl{font-size:.82rem;font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.ctl label span,.ctl .lbl span{font-family:var(--f-mono);font-weight:500;color:var(--accent)}
+.ctl small{font-size:.76rem;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select{font:inherit;font-size:.88rem;padding:6px 8px;border-radius:5px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:.85rem}
+.check input{margin-top:3px;accent-color:var(--accent)}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.btn{font:inherit;font-size:.84rem;padding:7px 11px;border-radius:5px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--paper);font-weight:600}
+.divider{border-top:1px solid var(--line)}
+
+.out{display:flex;flex-direction:column;gap:16px;min-width:0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.tile .k{font-family:var(--f-mono);font-size:.64rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font-family:var(--f-display);font-size:1.45rem;font-weight:600;line-height:1.05;font-variant-numeric:tabular-nums}
+.tile .s{font-size:.76rem;color:var(--muted)}
+.tile.bad{border-color:var(--bad);background:var(--bad-soft)}
+.tile.good .v{color:var(--good)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.chart{overflow-x:auto}
+.chart svg{display:block;width:100%;min-width:580px;height:auto}
+.chart text{font-family:var(--f-mono);font-size:10.5px;fill:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:5px}
+.legend i.l{height:3px;vertical-align:2px}
+.legend i.d{height:0;border-top:2px dashed var(--ink);vertical-align:3px}
+
+.reveal{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.view{border-radius:6px;padding:12px 14px;border:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.view.plan{border-style:dashed}
+.view.real{border-color:var(--accent);background:var(--accent-soft)}
+.view b{font-family:var(--f-display);font-size:1.25rem;font-weight:600}
+
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:700px;font-size:.84rem;font-variant-numeric:tabular-nums}
+th{font-family:var(--f-mono);font-size:.64rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:400;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right}
+tr.best td{background:var(--accent-soft)}
+tr.best td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.pill{font-family:var(--f-mono);font-size:.68rem;padding:2px 8px;border-radius:999px;border:1px solid;white-space:nowrap}
+.pill.auto{color:var(--good);border-color:var(--good)}
+.pill.human{color:var(--warn);border-color:var(--warn)}
+.pill.no{color:var(--bad);border-color:var(--bad)}
+.foot{font-size:.82rem;color:var(--muted);max-width:90ch;display:flex;flex-direction:column;gap:6px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+
+
+<div class="page">
+
+<header class="intro">
+  <span class="label">Arvela practice case · Poland plant, line 3 · by Saurabh Dubey</span>
+  <h1>Clarin cutover twin</h1>
+  <p class="muted">Plan the switch from the old 1L bottle to the new 30% recycled one. Move the controls and the twin re-runs 52 weeks of bottles, filling, stock and shelf. Compare what the plant's own spreadsheet sees with what the connected twin sees. All figures come from the fictional Arvela case.</p>
+</header>
+
+<section class="helps" aria-label="How the twin helps">
+  <div class="help"><span class="n">1</span><h3>It sees the hidden clash</h3><p id="h1">…</p></div>
+  <div class="help"><span class="n">2</span><h3>It tests every plan first</h3><p id="h2">…</p></div>
+  <div class="help"><span class="n">3</span><h3>It knows who decides</h3><p id="h3">…</p></div>
+</section>
+
+<section class="console" id="sim">
+  <div class="panel" aria-label="Plan controls">
+    <div class="ctl">
+      <span class="lbl">Start from</span>
+      <div class="presets">
+        <button class="btn" type="button" id="pA">A · switch on arrival</button>
+        <button class="btn" type="button" id="pB">B · use up old</button>
+        <button class="btn" type="button" id="pC">C · week 10</button>
+      </div>
+      <button class="btn primary" type="button" id="run">Run the twin: find the best plan</button>
+      <small id="runinfo">Searches every combination of the controls below and picks the cheapest plan that meets the rules.</small>
+    </div>
+    <div class="divider"></div>
+    <div class="ctl"><label for="sw">Switch to new bottle in week <span id="sw-v"></span></label><input id="sw" type="range" min="4" max="14" step="1"></div>
+    <label class="check"><input id="blend" type="checkbox"><span>Blend: from the switch week, top up with old bottles while new supply is short</span></label>
+    <div class="ctl"><label for="po">Keep of the 200k open order <span id="po-v"></span></label><input id="po" type="range" min="0" max="200" step="20"><small>Cancelling costs 30% of the value of what you cancel.</small></div>
+    <label class="check"><input id="wip" type="checkbox"><span>Stop the 80k old bottles in work at the supplier ($0.05 each)</span></label>
+    <div class="ctl"><label for="tr">Line trial in week <span id="tr-v"></span></label><input id="tr" type="range" min="4" max="12" step="1"><small>2 days on line 3 = 20.8k fewer bottles filled that week.</small></div>
+    <div class="ctl"><label for="sat">Saturday shifts after the trial <span id="sat-v"></span></label><input id="sat" type="range" min="0" max="3" step="1"><small>+10.4k each, $8k each.</small></div>
+    <div class="divider"></div>
+    <div class="ctl"><label for="spain">Spain plant claims 20k/week of the same supplier</label>
+      <select id="spain"><option value="6">From week 6 (its plan today)</option><option value="12">From week 12 (its BOM fixed late)</option><option value="0">Never (Spain uses another bottle)</option></select>
+      <small>Spain plans in S/4HANA. Poland's spreadsheet can't see this.</small></div>
+    <div class="ctl"><label for="s2">Second bottle supplier (+15k/week)</label>
+      <select id="s2"><option value="0">None</option><option value="20">From week 20</option><option value="26">From week 26</option><option value="32">From week 32</option></select>
+      <small>$60k to qualify.</small></div>
+    <div class="ctl"><label for="slack">Rule: new pack on shelf at least <span id="slack-v"></span> weeks before the week-16 deadline</label><input id="slack" type="range" min="0" max="4" step="1"></div>
+  </div>
+
+  <div class="out">
+    <div class="tiles" id="tiles"></div>
+
+    <div class="reveal" id="reveal"></div>
+
+    <div class="card">
+      <h3>Bottles in stock at Poland (thousands)</h3>
+      <div class="chart"><svg id="c1" viewBox="0 0 860 240" xmlns="http://www.w3.org/2000/svg" aria-label="Old and new bottle stock by week"></svg></div>
+      <div class="legend"><span><i style="background:var(--old-soft);border:1px solid var(--old)"></i>Old bottle</span><span><i style="background:var(--new-soft);border:1px solid var(--new)"></i>New 30% PCR bottle</span><span>Leftover old bottles at week 52 are written off</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Shelf stock: weeks of cover in the DCs</h3>
+      <div class="chart"><svg id="c2" viewBox="0 0 860 240" xmlns="http://www.w3.org/2000/svg" aria-label="Finished goods cover by week, twin vs spreadsheet"></svg></div>
+      <div class="legend"><span><i class="l" style="background:var(--accent)"></i>Connected twin (reality)</span><span><i class="d"></i>Poland spreadsheet (Spain invisible)</span><span><i style="background:var(--bad-soft)"></i>Weeks with lost sales</span><span>Dotted line: 2-week safety level</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Who decides each part of this plan</h3>
+      <p class="muted" style="font-size:.85rem">Arvela's rules: a human approves anything over $500k, anything that changes what a customer receives, and new contracts.</p>
+      <div class="tbl"><table id="gate"></table></div>
+    </div>
+
+    <div class="card" id="rankcard" hidden>
+      <h3>The twin's top plans</h3>
+      <div class="tbl"><table id="rank"></table></div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <span class="label">Model assumptions</span>
+  <p>Weekly model over 52 weeks, in thousands of bottles. Demand is 52k a week, 72.8k in week 9 (promotion). Line 3 fills 52k a week, so it has no spare capacity. Finished goods start at 3 weeks of cover (156k) and the plant tries to refill to that level. The 150k finished old bottles at the supplier are available from week 1, the 80k in work from week 2, and the open order arrives in week 5.</p>
+  <p>Supplier output for new bottles: 25k a week from week 4, 45k from week 6, 60k from week 8. When Spain is active it takes 20k first. A pack reaches the shelf about 3 weeks after filling. The mixed-shelf period is from the first new pack on shelf to the last old pack, at most 6 weeks.</p>
+  <p>Costs: old bottle $0.21. Lost sales cost $1.11 of margin per unit. Each week below 2 weeks of cover adds a $5k risk charge. Holding new bottles costs $2 per thousand per week. Peak storage is shown in pallets at 1,500 bottles per pallet. A real twin would also run many scenarios for supplier ramp-up and trial success; this one is deterministic.</p>
+</footer>
+</div>
+
+<script>
+(function(){
+  var H=52, DEM=52, CAP=52, FG0=156, DEADLINE=16, SHELF_LAG=3;
+  var OLD_P=0.21, MARGIN=1.11, SAT_COST=8, S2_COST=60, WIP_FEE=0.05, HOLD=0.002, RISK=5;
+  function demand(w){ return w===9 ? 72.8 : DEM; }
+  function supplier(w){ return w<4?0 : w<6?25 : w<8?45 : 60; }
+
+  // p: {sw, blend, po, wip, tr, sat, spain, s2}; seeSpain=false is the plant spreadsheet view
+  function sim(p, seeSpain){
+    var old=330, nw=0, fg=FG0, lost=0, firstNew=null, lastOld=null, firstLost=null, riskWeeks=0, hold=0, peakNew=0;
+    var rows=[];
+    for(var w=1; w<=H; w++){
+      if(w===2 && !p.wip) old+=80;
+      if(w===5) old+=p.po;
+      var spainTake = (seeSpain && p.spain && w>=p.spain) ? 20 : 0;
+      nw += Math.max(0, supplier(w)-spainTake) + (p.s2 && w>=p.s2 ? 15 : 0);
+      var cap = CAP + (w===p.tr ? -20.8 : 0) + (w>p.tr && w<=p.tr+p.sat ? 10.4 : 0);
+      var d=demand(w), target=Math.max(0, Math.min(cap, d + (FG0-fg)));
+      var uo=0, un=0;
+      if(w<p.sw){ uo=Math.min(target,old); un=Math.min(target-uo,nw); }
+      else if(p.blend){ un=Math.min(target,nw); uo=Math.min(target-un,old); }
+      else { un=Math.min(target,nw); }
+      old-=uo; nw-=un;
+      if(un>0.01 && firstNew===null) firstNew=w;
+      if(uo>0.01) lastOld=w;
+      var avail=fg+uo+un, ship=Math.min(d,avail), short=d-ship;
+      fg=avail-ship; lost+=short;
+      if(short>0.01 && firstLost===null) firstLost=w;
+      if(fg < 2*DEM) riskWeeks++;
+      hold+=nw*HOLD; if(nw>peakNew) peakNew=nw;
+      rows.push({w:w, old:old, nw:nw, fg:fg, cover:fg/DEM, short:short});
+    }
+    var cancelled=200-p.po;
+    var feesK = 0.3*cancelled*OLD_P + (p.wip?80*WIP_FEE:0);       // $k (thousand bottles x $)
+    var writeoffK = old*OLD_P;
+    var otherK = p.sat*SAT_COST + (p.s2?S2_COST:0) + hold + riskWeeks*RISK;
+    var lostK = lost*MARGIN;
+    var shelfNew = firstNew===null ? null : firstNew+SHELF_LAG;
+    var mixed = (firstNew!==null && lastOld!==null) ? Math.max(0, lastOld-firstNew+1) : 0;
+    return {firstNew:firstNew, rows:rows, feesK:feesK, writeoffK:writeoffK, otherK:otherK, lostK:lostK, total:feesK+writeoffK+otherK+lostK,
+      lost:lost, firstLost:firstLost, shelfNew:shelfNew, mixed:mixed, peakNew:peakNew, riskWeeks:riskWeeks, leftover:old};
+  }
+  function feasible(r, slack){ return r.shelfNew!==null && r.shelfNew<=DEADLINE-slack && r.mixed<=6; }
+
+  var $=function(id){return document.getElementById(id);};
+  var P={sw:10, blend:false, po:80, wip:false, tr:4, sat:0, spain:6, s2:0};
+  var SLACK=3, lastRank=null;
+
+  function readUI(){
+    P.sw=+$("sw").value; P.blend=$("blend").checked; P.po=+$("po").value; P.wip=$("wip").checked;
+    P.tr=+$("tr").value; P.sat=+$("sat").value; P.spain=+$("spain").value; P.s2=+$("s2").value; SLACK=+$("slack").value;
+  }
+  function writeUI(){
+    $("sw").value=P.sw; $("blend").checked=P.blend; $("po").value=P.po; $("wip").checked=P.wip;
+    $("tr").value=P.tr; $("sat").value=P.sat; $("spain").value=String(P.spain); $("s2").value=String(P.s2); $("slack").value=SLACK;
+  }
+  function k$(v){ return v>=1000 ? "$"+(v/1000).toFixed(2)+"M" : "$"+Math.round(v)+"k"; }
+
+  function search(){
+    var t0=performance.now(), n=0, ok=[];
+    for(var sw=4; sw<=14; sw++) for(var po=0; po<=200; po+=20) for(var wip=0; wip<2; wip++)
+    for(var sat=0; sat<=2; sat++) for(var bi=0; bi<2; bi++) [0,20,26,32].forEach(function(s2){
+      var p={sw:sw, blend:!!bi, po:po, wip:!!wip, tr:P.tr, sat:sat, spain:P.spain, s2:s2};
+      var r=sim(p,true); n++;
+      if(feasible(r,SLACK)){ r.p=p; ok.push(r); }
+    });
+    ok.sort(function(a,b){return a.total-b.total || a.p.sw-b.p.sw || a.p.blend-b.p.blend;});
+    // plans whose old bottles run out before the switch week behave identically; keep one of each
+    var seen={}, uniq=ok.filter(function(r){ var k=[r.firstNew,r.p.po,r.p.wip,r.p.sat,r.p.s2,r.mixed,Math.round(r.total)].join("|");
+      if(seen[k]) return false; seen[k]=1; return true; });
+    return {n:n, ms:performance.now()-t0, list:uniq, feasible:ok.length};
+  }
+
+  function describe(p, r){
+    return "New bottles from wk "+r.firstNew+(p.blend?" (blend)":"")+", keep "+p.po+"k of order"+(p.wip?", stop WIP":"")+
+      (p.sat?", "+p.sat+" Sat":"")+(p.s2?", 2nd supplier wk "+p.s2:"");
+  }
+
+  function render(){
+    ["sw","po","tr","sat","slack"].forEach(function(id){ $(id+"-v").textContent = id==="po" ? $(id).value+"k" : $(id).value; });
+    var real=sim(P,true), plan=sim(P,false), ok=feasible(real,SLACK);
+
+    var tiles=[
+      {k:"Total cost, 52 weeks", v:k$(real.total), s:"fees, write-off, lost margin, other", cls: ok?"":"bad"},
+      {k:"Fees + write-off", v:k$(real.feesK+real.writeoffK), s:Math.round(real.leftover)+"k old bottles left"},
+      {k:"Lost sales", v:Math.round(real.lost)+"k", s:real.firstLost?"first short in week "+real.firstLost:"none in 52 weeks", cls:real.lost>0.5?"bad":"good"},
+      {k:"New bottles used from", v:real.firstNew?("wk "+real.firstNew):"never", s:real.firstNew&&real.firstNew<P.sw?"old ran out before the switch week":"as planned"},
+      {k:"New pack on shelf", v:real.shelfNew?("wk "+real.shelfNew):"never", s:real.shelfNew?(DEADLINE-real.shelfNew)+" wk before deadline":"misses week 16", cls:(real.shelfNew&&real.shelfNew<=DEADLINE-SLACK)?"":"bad"},
+      {k:"Mixed shelf", v:real.mixed+" wk", s:"limit 6 weeks", cls:real.mixed>6?"bad":""},
+      {k:"Peak new-bottle storage", v:Math.round(real.peakNew*1000/1500)+" pallets", s:Math.round(real.peakNew)+"k bottles"}
+    ];
+    $("tiles").innerHTML=tiles.map(function(t){return '<div class="tile '+(t.cls||"")+'"><span class="k">'+t.k+'</span><span class="v">'+t.v+'</span><span class="s">'+t.s+'</span></div>';}).join("");
+
+    $("reveal").innerHTML=
+      '<div class="view plan"><span class="label">Poland spreadsheet says</span><b>'+(plan.lost>0.5?"Short from week "+plan.firstLost:"No shortage")+'</b><span class="muted" style="font-size:.85rem">Sees only its own ERP, so it assumes the supplier\'s full output is Poland\'s.</span></div>'+
+      '<div class="view real"><span class="label">Connected twin says</span><b>'+(real.lost>0.5?"Short from week "+real.firstLost+" · "+Math.round(real.lost)+"k units lost":"No shortage")+'</b><span class="muted" style="font-size:.85rem">The thread links Spain\'s BOM to the same supplier drawing D-5531, so Spain\'s claim on the capacity is counted.</span></div>';
+
+    drawStock(real); drawCover(real, plan);
+
+    // gate
+    var g=[];
+    var cancelled=200-P.po;
+    if(cancelled>0) g.push(["Cancel "+cancelled+"k of the open order", k$(0.3*cancelled*OLD_P), "Supplier-facing, under $500k, small fee", "auto"]);
+    if(P.wip) g.push(["Stop 80k bottles in work at supplier", k$(80*WIP_FEE), "Supplier-facing, under $500k", "auto"]);
+    g.push(["Book line trial in week "+P.tr, "lost output 20.8k", "Internal and reversible", "auto"]);
+    if(P.sat) g.push([P.sat+" Saturday shift"+(P.sat>1?"s":""), k$(P.sat*SAT_COST), "Internal, under $500k", "auto"]);
+    g.push(["Switch to new pack in week "+P.sw+(P.blend?" with blending":""), real.mixed+" wk mixed shelf", "Changes what customers receive", "human"]);
+    if(P.s2) g.push(["Qualify second supplier from week "+P.s2, k$(S2_COST), "New contract", "human"]);
+    if(!ok) g.push(["This plan as a whole", "", real.shelfNew===null||real.shelfNew>DEADLINE?"Misses the week-16 deadline": real.mixed>6?"Mixed shelf over 6 weeks":"Less slack than the rule requires", "no"]);
+    $("gate").innerHTML='<thead><tr><th>Action</th><th>Cost / effect</th><th>Why</th><th>Decision</th></tr></thead><tbody>'+
+      g.map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td class="muted">'+r[2]+'</td><td><span class="pill '+r[3]+'">'+(r[3]==="auto"?"Agent acts":r[3]==="human"?"Human approves":"Blocked by rules")+'</span></td></tr>';}).join("")+'</tbody>';
+
+    // help texts
+    $("h1").textContent = P.spain
+      ? "Spain's plant claims 20k a week of the same supplier from week "+P.spain+". Poland's spreadsheet "+(plan.lost>0.5?"also shows a shortage":"shows no shortage")+"; the twin "+(real.lost>0.5?"finds "+Math.round(real.lost)+"k units of lost sales from week "+real.firstLost+".":"confirms this plan covers it.")
+      : "With Spain on another bottle, the spreadsheet and the twin agree. The clash only exists when two plants on two ERPs share one supplier.";
+    $("h2").textContent = lastRank
+      ? "It tested "+lastRank.n.toLocaleString()+" plans in "+Math.max(1,Math.round(lastRank.ms))+" ms. "+lastRank.feasible.toLocaleString()+" met the rules. A spreadsheet planner tests one or two. The best costs "+(lastRank.list[0]?k$(lastRank.list[0].total):"n/a")+"."
+      : "Press \"Run the twin\" to test every combination of switch week, order size, Saturdays and second supplier against the rules.";
+    var humans=g.filter(function(r){return r[3]==="human";}).length, autos=g.filter(function(r){return r[3]==="auto";}).length;
+    $("h3").textContent = autos+" actions in this plan can be done by an agent. "+humans+" need a person, because they change what customers receive or create a new contract.";
+  }
+
+  function axes(svg, ymax, ylab, fmt){
+    var W=860,Hh=240,L=46,R=12,T=14,B=30;
+    var x=function(w){return L+(w-0.5)/H*(W-L-R);}, y=function(v){return T+(1-v/ymax)*(Hh-T-B);};
+    var o="", steps=4;
+    for(var i=0;i<=steps;i++){ var v=ymax*i/steps; o+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--line)"/><text x="'+(L-6)+'" y="'+(y(v)+3.5)+'" text-anchor="end">'+fmt(v)+'</text>'; }
+    for(var w=4; w<=H; w+=4) o+='<text x="'+x(w)+'" y="'+(Hh-B+16)+'" text-anchor="middle">wk '+w+'</text>';
+    o+='<text x="'+L+'" y="10">'+ylab+'</text>';
+    return {o:o,x:x,y:y,L:L,R:R,T:T,B:B,W:W,H:Hh};
+  }
+  function vmark(a, w, txt, col, row){
+    return '<line x1="'+a.x(w)+'" x2="'+a.x(w)+'" y1="'+a.T+'" y2="'+(a.H-a.B)+'" stroke="'+col+'" stroke-dasharray="2 3"/>'+
+      '<text x="'+(a.x(w)+3)+'" y="'+(a.T+12+row*12)+'" style="fill:'+col+'">'+txt+'</text>';
+  }
+  function drawStock(r){
+    var ymax=Math.max(450, Math.ceil(Math.max.apply(null,r.rows.map(function(d){return d.old+d.nw;}))/100)*100);
+    var a=axes($("c1"), ymax, "thousand bottles", function(v){return Math.round(v);});
+    var o=a.o, bw=(a.W-a.L-a.R)/H*0.8;
+    r.rows.forEach(function(d){
+      var x0=a.x(d.w)-bw/2;
+      o+='<rect x="'+x0+'" y="'+a.y(d.old)+'" width="'+bw+'" height="'+(a.y(0)-a.y(d.old))+'" fill="var(--old-soft)" stroke="var(--old)" stroke-width=".6"/>';
+      o+='<rect x="'+x0+'" y="'+a.y(d.old+d.nw)+'" width="'+bw+'" height="'+(a.y(d.old)-a.y(d.old+d.nw))+'" fill="var(--new-soft)" stroke="var(--new)" stroke-width=".6"/>';
+    });
+    o+=vmark(a,P.sw,"switch","var(--accent)",0)+vmark(a,9,"promo","var(--muted)",1)+vmark(a,DEADLINE,"deadline","var(--bad)",0);
+    if(P.spain) o+=vmark(a,P.spain,"Spain starts","var(--warn)",2);
+    $("c1").innerHTML=o;
+  }
+  function drawCover(r, plan){
+    var a=axes($("c2"), 4, "weeks of cover", function(v){return v.toFixed(0);});
+    var o=a.o;
+    r.rows.forEach(function(d){ if(d.short>0.01){ var bw=(a.W-a.L-a.R)/H; o+='<rect x="'+(a.x(d.w)-bw/2)+'" y="'+a.T+'" width="'+bw+'" height="'+(a.H-a.T-a.B)+'" fill="var(--bad-soft)"/>'; }});
+    o+='<line x1="'+a.L+'" x2="'+(a.W-a.R)+'" y1="'+a.y(2)+'" y2="'+a.y(2)+'" stroke="var(--muted)" stroke-dasharray="1 3"/>';
+    function line(rows){ return rows.map(function(d,i){return (i?"L":"M")+a.x(d.w).toFixed(1)+","+a.y(Math.min(4,d.cover)).toFixed(1);}).join(""); }
+    o+='<path d="'+line(plan.rows)+'" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="5 4" opacity=".7"/>';
+    o+='<path d="'+line(r.rows)+'" fill="none" stroke="var(--accent)" stroke-width="2.4"/>';
+    o+=vmark(a,P.sw,"switch","var(--accent)",0)+vmark(a,DEADLINE,"deadline","var(--bad)",0);
+    $("c2").innerHTML=o;
+  }
+
+  function renderRank(res){
+    var rows=res.list.slice(0,6).map(function(r,i){
+      return '<tr class="'+(i===0?"best":"")+'"><td>'+describe(r.p,r)+'</td><td class="n">wk '+r.shelfNew+'</td><td class="n">'+Math.round(r.lost)+'k</td><td class="n">'+k$(r.feesK+r.writeoffK)+'</td><td class="n">'+k$(r.otherK)+'</td><td class="n"><b>'+k$(r.total)+'</b></td></tr>';
+    }).join("");
+    $("rank").innerHTML='<thead><tr><th>Plan</th><th class="n">New on shelf</th><th class="n">Lost sales</th><th class="n">Fees + write-off</th><th class="n">Other costs</th><th class="n">Total</th></tr></thead><tbody>'+
+      (rows || '<tr><td colspan="6">No plan meets the rules. Relax the slack rule or change Spain\'s start week.</td></tr>')+'</tbody>';
+    $("rankcard").hidden=false;
+  }
+
+  var PRESETS={
+    pA:{sw:4, blend:true, po:0, wip:true, tr:4, sat:0, s2:0},
+    pB:{sw:12, blend:false, po:200, wip:false, tr:4, sat:0, s2:0},
+    pC:{sw:10, blend:false, po:80, wip:false, tr:4, sat:0, s2:0}
+  };
+  Object.keys(PRESETS).forEach(function(id){
+    $(id).addEventListener("click",function(){ var s=PRESETS[id]; Object.keys(s).forEach(function(k){P[k]=s[k];}); writeUI(); render(); });
+  });
+  $("run").addEventListener("click",function(){
+    readUI(); var res=search(); lastRank=res;
+    if(res.list[0]){ var b=res.list[0].p; Object.keys(b).forEach(function(k){P[k]=b[k];}); writeUI(); }
+    renderRank(res); render();
+  });
+  ["sw","po","tr","sat","slack"].forEach(function(id){ $(id).addEventListener("input",function(){ readUI(); render(); }); });
+  ["blend","wip","spain","s2"].forEach(function(id){ $(id).addEventListener("change",function(){ readUI(); render(); }); });
+
+  writeUI(); render();
+})();
+</script>
+
+</body>
+</html>
